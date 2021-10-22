@@ -2,7 +2,7 @@ version: "3.4"
 
 services:
   grpc-api:
-    image: prometheus-deephaven/grpc-api:latest
+    image: deephaven-examples/prometheus-metrics-grpc-api:latest
     expose:
       - '8080'
     volumes:
@@ -10,6 +10,8 @@ services:
       - api-cache:/cache
     environment:
       - JAVA_TOOL_OPTIONS=-Xmx4g -Ddeephaven.console.type=python -Ddeephaven.application.dir=/app.d
+    depends_on:
+      - prometheus
 
   web:
     image: ghcr.io/deephaven/web:${VERSION:-latest}
