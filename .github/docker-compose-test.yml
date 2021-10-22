@@ -1,0 +1,12 @@
+version: "3.4"
+
+services:
+  grpc-api:
+    image: deephaven-examples/prometheus-metrics-grpc-api:latest
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xmx4g -Ddeephaven.console.type=python -Ddeephaven.application.dir=/app.d
+    depends_on:
+      - prometheus
+
+  prometheus:
+    image: prom/prometheus
