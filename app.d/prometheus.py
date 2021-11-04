@@ -17,6 +17,7 @@ from deephaven import DynamicTableWriter
 from deephaven.DBTimeUtils import millisToTime
 import deephaven.Types as dht
 from typing import Callable
+from deephaven.MovingAverages import ByEmaSimple
 
 import requests
 
@@ -27,6 +28,8 @@ PROMETHEUS_QUERIES = ["up", "go_memstats_alloc_bytes"] #Edit this and add your q
 BASE_URL = "{base}/api/v1/query".format(base="http://prometheus:9090") #Edit this to your base URL if you're not using a local Prometheus instance
 
 ApplicationState = jpy.get_type("io.deephaven.appmode.ApplicationState")
+
+prometheus_metrics_ema = ByEmaSimple(nullBehavior='BD_SKIP', nanBehavior='BD_SKIP', mode='TIME', type='LEVEL', timeScale=10, timeUnit="SECONDS")
 
 def make_prometheus_request(prometheus_query, query_url):
     """
@@ -145,6 +148,18 @@ def update(app: ApplicationState):
 
     result_dynamic_average = result_dynamic.dropColumns("DateTime", "Job", "Instance").avgBy("PrometheusQuery")
     app.setField("result_dynamic_average", result_dynamic_average)
+
+    #Downsampling examples
+    result_dynamic_downsampled_average = result_dynamic.update("DateTimeMinute = lowerBin(DateTime, 60000000000)")\
+        .dropColumns("DateTime")\
+        .avgBy("PrometheusQuery", "DateTimeMinute", "Job", "Instance")
+    app.setField("result_dynamic_downsampled_average", result_dynamic_downsampled_average)
+
+    result_dynamic_downsampled_tail = result_dynamic.tail(20)
+    app.setField("result_dynamic_downsampled_tail", result_dynamic_downsampled_tail)
+
+    result_dynamic_ema = result_dynamic.view("PrometheusQuery", "EMA = prometheus_metrics_ema.update(DateTime, Value, PrometheusQuery, Job, Instance)").lastBy("PrometheusQuery").tail(10)
+    app.setField("result_dynamic_ema", result_dynamic_ema)
 
 def initialize(func: Callable[[ApplicationState], None]):
     """
