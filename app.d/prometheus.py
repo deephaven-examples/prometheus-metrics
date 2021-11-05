@@ -150,7 +150,7 @@ def update(app: ApplicationState):
     app.setField("result_dynamic_average", result_dynamic_average)
 
     #Downsampling examples
-    result_dynamic_downsampled_average = result_dynamic.update("DateTimeMinute = lowerBin(DateTime, 60000000000)")\
+    result_dynamic_downsampled_average = result_dynamic.update("DateTimeMinute = lowerBin(DateTime, '00:01:00')")\
         .dropColumns("DateTime")\
         .avgBy("PrometheusQuery", "DateTimeMinute", "Job", "Instance")
     app.setField("result_dynamic_downsampled_average", result_dynamic_downsampled_average)
@@ -158,7 +158,9 @@ def update(app: ApplicationState):
     result_dynamic_downsampled_tail = result_dynamic.tail(20)
     app.setField("result_dynamic_downsampled_tail", result_dynamic_downsampled_tail)
 
-    result_dynamic_ema = result_dynamic.view("PrometheusQuery", "EMA = prometheus_metrics_ema.update(DateTime, Value, PrometheusQuery, Job, Instance)").lastBy("PrometheusQuery").tail(10)
+    result_dynamic_ema = result_dynamic.view("PrometheusQuery", "EMA = prometheus_metrics_ema.update(DateTime, Value, PrometheusQuery, Job, Instance)")\
+        .lastBy("PrometheusQuery")\
+        .tail(10)
     app.setField("result_dynamic_ema", result_dynamic_ema)
 
 def initialize(func: Callable[[ApplicationState], None]):
