@@ -28,8 +28,6 @@ import time
 PROMETHEUS_QUERIES = ["go_memstats_alloc_bytes", "go_memstats_heap_idle_bytes", "go_memstats_frees_total"] #Edit this and add your queries here
 BASE_URL = "{base}/api/v1/query".format(base="http://prometheus:9090") #Edit this to your base URL if you're not using a local Prometheus instance
 
-ApplicationState = jpy.get_type("io.deephaven.appmode.ApplicationState")
-
 prometheus_metrics_ema = ByEmaSimple(nullBehavior='BD_SKIP', nanBehavior='BD_SKIP', mode='TIME', type='LEVEL', timeScale=10, timeUnit="SECONDS")
 
 def make_prometheus_request(prometheus_query, query_url):
