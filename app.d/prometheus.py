@@ -135,6 +135,6 @@ result_dynamic_ema = result_dynamic.view("PrometheusQuery", "EMA = prometheus_me
 
 #Plotting examples
 
-line_plot = Plot.plot("Average By Minute", result_dynamic_downsampled_average.where("PrometheusQuery = `go_memstats_alloc_bytes`"), "DateTimeMinute", "Value").show()
-cat_plot = Plot.catPlot("Average By Minute", result_dynamic_downsampled_average.where("PrometheusQuery = `go_memstats_alloc_bytes`"), "DateTimeMinute", "Value").show()
-hist_plot = Plot.histPlot("Count Of Values", result_dynamic.where("PrometheusQuery = `go_memstats_alloc_bytes`"), "Value", 20).show()
+line_plot = Plot.plot("Average By Minute", result_dynamic_downsampled_average.where("PrometheusQuery = `go_memstats_alloc_bytes`"), "DateTimeMinute", "Value").chartTitle("go_memstats_alloc_bytes Average Per Minute").show()
+cat_plot = Plot.catPlot("Average By Minute", result_dynamic_downsampled_average.where("PrometheusQuery = `go_memstats_alloc_bytes`"), "DateTimeMinute", "Value").chartTitle("go_memstats_alloc_bytes Average Per Minute").show()
+hist_plot = Plot.histPlot("Count Of Values", result_dynamic.where("PrometheusQuery = `go_memstats_alloc_bytes`"), "Value", 20).chartTitle("go_memstats_alloc_bytes Distribution").show()
