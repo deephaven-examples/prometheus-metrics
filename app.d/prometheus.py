@@ -18,16 +18,15 @@ from deephaven.DBTimeUtils import millisToTime
 import deephaven.Types as dht
 from typing import Callable
 from deephaven.MovingAverages import ByEmaSimple
+from deephaven import Plot
 
 import requests
 
 import threading
 import time
 
-PROMETHEUS_QUERIES = ["up", "go_memstats_alloc_bytes"] #Edit this and add your queries here
+PROMETHEUS_QUERIES = ["go_memstats_alloc_bytes", "go_memstats_heap_idle_bytes", "go_memstats_frees_total"] #Edit this and add your queries here
 BASE_URL = "{base}/api/v1/query".format(base="http://prometheus:9090") #Edit this to your base URL if you're not using a local Prometheus instance
-
-ApplicationState = jpy.get_type("io.deephaven.appmode.ApplicationState")
 
 prometheus_metrics_ema = ByEmaSimple(nullBehavior='BD_SKIP', nanBehavior='BD_SKIP', mode='TIME', type='LEVEL', timeScale=10, timeUnit="SECONDS")
 
@@ -65,113 +64,77 @@ def make_prometheus_request(prometheus_query, query_url):
                 results.append((timestamp, job, instance, value))
     return results
 
-def start_dynamic(app: ApplicationState):
-    """
-    Deephaven Application Mode method that starts the dynamic data collector.
-    """
-    column_names = ["DateTime", "PrometheusQuery", "Job", "Instance", "Value"]
-    column_types = [dht.datetime, dht.string, dht.string, dht.string, dht.double]
+column_names = ["DateTime", "PrometheusQuery", "Job", "Instance", "Value"]
+column_types = [dht.datetime, dht.string, dht.string, dht.string, dht.double]
 
-    table_writer = DynamicTableWriter(
-        column_names,
-        column_types
-    )
+table_writer = DynamicTableWriter(
+    column_names,
+    column_types
+)
 
-    result = table_writer.getTable() 
+result_dynamic = table_writer.getTable() 
 
-    def thread_func():
-        while True:
-            for prometheus_query in PROMETHEUS_QUERIES:
-                values = make_prometheus_request(prometheus_query, BASE_URL)
-
-                for (date_time, job, instance, value) in values:
-                    table_writer.logRow(date_time, prometheus_query, job, instance, value)
-            time.sleep(2)
-
-    app.setField("result_dynamic", result)
-    thread = threading.Thread(target = thread_func)
-    thread.start()
-
-def start_static(app: ApplicationState, query_count=5):
-    """
-    Deephaven Application Mode method that starts the static data collector.
-
-    query_count sets the number of requests to make. It is recommended to keep this number low,
-    since it delays how long the Deephaven UI takes to become accessible.
-    """
-    date_time_list = []
-    prometheus_query_list = []
-    job_list = []
-    instance_list = []
-    value_list = []
-
-    for i in range(query_count):
+def thread_func():
+    while True:
         for prometheus_query in PROMETHEUS_QUERIES:
             values = make_prometheus_request(prometheus_query, BASE_URL)
 
             for (date_time, job, instance, value) in values:
-                date_time_list.append(date_time)
-                prometheus_query_list.append(prometheus_query)
-                job_list.append(job)
-                instance_list.append(instance)
-                value_list.append(value)
+                table_writer.logRow(date_time, prometheus_query, job, instance, value)
         time.sleep(2)
 
-    result = newTable(
-        dateTimeCol("DateTime", date_time_list),
-        stringCol("PrometheusQuery", prometheus_query_list),
-        stringCol("Job", job_list),
-        stringCol("Instance", instance_list),
-        doubleCol("Value", value_list)
-    ) 
-    app.setField("result_static", result)
+thread = threading.Thread(target = thread_func)
+thread.start()
 
-def update(app: ApplicationState):
-    """
-    Deephaven Application Mode method that does various updates on the initial tables.
+date_time_list = []
+prometheus_query_list = []
+job_list = []
+instance_list = []
+value_list = []
+query_count = 2
 
-    You can throw any Deehaven Query in here. The ones in here are simply examples.
-    """
-    #Get the tables from the app
-    result_static = app.getField("result_static").value()
-    result_dynamic = app.getField("result_dynamic").value()
+for i in range(query_count):
+    for prometheus_query in PROMETHEUS_QUERIES:
+        values = make_prometheus_request(prometheus_query, BASE_URL)
 
-    #Perform the desired queries, and set the results as new fields
-    result_static_update = result_static.by("PrometheusQuery")
-    app.setField("result_static_update", result_static_update)
+        for (date_time, job, instance, value) in values:
+            date_time_list.append(date_time)
+            prometheus_query_list.append(prometheus_query)
+            job_list.append(job)
+            instance_list.append(instance)
+            value_list.append(value)
+    time.sleep(2)
 
-    result_static_average = result_static.dropColumns("DateTime", "Job", "Instance").avgBy("PrometheusQuery")
-    app.setField("result_static_average", result_static_average)
+result_static = newTable(
+    dateTimeCol("DateTime", date_time_list),
+    stringCol("PrometheusQuery", prometheus_query_list),
+    stringCol("Job", job_list),
+    stringCol("Instance", instance_list),
+    doubleCol("Value", value_list)
+) 
 
-    result_dynamic_update = result_dynamic.by("PrometheusQuery")
-    app.setField("result_dynamic_update", result_dynamic_update)
+#Perform the desired queries, and set the results as new fields
+result_static_update = result_static.by("PrometheusQuery")
 
-    result_dynamic_average = result_dynamic.dropColumns("DateTime", "Job", "Instance").avgBy("PrometheusQuery")
-    app.setField("result_dynamic_average", result_dynamic_average)
+result_static_average = result_static.dropColumns("DateTime", "Job", "Instance").avgBy("PrometheusQuery")
 
-    #Downsampling examples
-    result_dynamic_downsampled_average = result_dynamic.update("DateTimeMinute = lowerBin(DateTime, '00:01:00')")\
-        .dropColumns("DateTime")\
-        .avgBy("PrometheusQuery", "DateTimeMinute", "Job", "Instance")
-    app.setField("result_dynamic_downsampled_average", result_dynamic_downsampled_average)
+result_dynamic_update = result_dynamic.by("PrometheusQuery")
 
-    result_dynamic_downsampled_tail = result_dynamic.tail(20)
-    app.setField("result_dynamic_downsampled_tail", result_dynamic_downsampled_tail)
+result_dynamic_average = result_dynamic.dropColumns("DateTime", "Job", "Instance").avgBy("PrometheusQuery")
 
-    result_dynamic_ema = result_dynamic.view("PrometheusQuery", "EMA = prometheus_metrics_ema.update(DateTime, Value, PrometheusQuery, Job, Instance)")\
-        .lastBy("PrometheusQuery")\
-        .tail(10)
-    app.setField("result_dynamic_ema", result_dynamic_ema)
+#Downsampling examples
+result_dynamic_downsampled_average = result_dynamic.update("DateTimeMinute = lowerBin(DateTime, '00:01:00')")\
+    .dropColumns("DateTime")\
+    .avgBy("PrometheusQuery", "DateTimeMinute", "Job", "Instance")
 
-def initialize(func: Callable[[ApplicationState], None]):
-    """
-    Deephaven Application Mode initialization method.
-    """
-    app = jpy.get_type("io.deephaven.appmode.ApplicationContext").get()
-    func(app)
+result_dynamic_downsampled_tail = result_dynamic.tail(20)
 
-#Start the static and dynamic data collectors
-initialize(start_static)
-initialize(start_dynamic)
-#Run the table updates
-initialize(update)
+result_dynamic_ema = result_dynamic.view("PrometheusQuery", "EMA = prometheus_metrics_ema.update(DateTime, Value, PrometheusQuery, Job, Instance)")\
+    .lastBy("PrometheusQuery")\
+    .tail(10)
+
+#Plotting examples
+
+line_plot = Plot.plot("Average By Minute", result_dynamic_downsampled_average.where("PrometheusQuery = `go_memstats_alloc_bytes`"), "DateTimeMinute", "Value").chartTitle("go_memstats_alloc_bytes Average Per Minute").show()
+cat_plot = Plot.catPlot("Average By Minute", result_dynamic_downsampled_average.where("PrometheusQuery = `go_memstats_alloc_bytes`"), "DateTimeMinute", "Value").chartTitle("go_memstats_alloc_bytes Average Per Minute").show()
+hist_plot = Plot.histPlot("Count Of Values", result_dynamic.where("PrometheusQuery = `go_memstats_alloc_bytes`"), "Value", 20).chartTitle("go_memstats_alloc_bytes Distribution").show()
