@@ -1,12 +1,12 @@
 """
 prometheus.py
 
-A simple python script that pulls data from Prometheus's API, and
+A simple Python script that pulls data from Prometheus's API, and
 stores it in a Deephaven table.
 
 This is expected to be run within Deephaven's application mode https://deephaven.io/core/docs/how-to-guides/app-mode/.
 
-After launching, there will be 2 tables within the "Panels" section of the Deephaven UI.
+After launching, there will be two tables within the "Panels" section of the Deephaven UI.
 One will be a static table and the other will be continually updating with real data.
 
 @author Jake Mulford
