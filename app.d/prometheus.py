@@ -14,7 +14,7 @@ One will be a static table and the other will be continually updating with real 
 """
 from deephaven.TableTools import newTable, stringCol, dateTimeCol, doubleCol
 from deephaven import DynamicTableWriter
-from deephaven.DBTimeUtils import millisToTime
+from deephaven.DateTimeUtils import millisToTime
 import deephaven.Types as dht
 from typing import Callable
 from deephaven.MovingAverages import ByEmaSimple
@@ -114,11 +114,11 @@ result_static = newTable(
 ) 
 
 #Perform the desired queries, and set the results as new fields
-result_static_update = result_static.by("PrometheusQuery")
+result_static_update = result_static.groupBy("PrometheusQuery")
 
 result_static_average = result_static.dropColumns("DateTime", "Job", "Instance").avgBy("PrometheusQuery")
 
-result_dynamic_update = result_dynamic.by("PrometheusQuery")
+result_dynamic_update = result_dynamic.groupBy("PrometheusQuery")
 
 result_dynamic_average = result_dynamic.dropColumns("DateTime", "Job", "Instance").avgBy("PrometheusQuery")
 
