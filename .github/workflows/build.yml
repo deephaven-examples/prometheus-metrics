@@ -15,18 +15,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-
       - name: Build
-        run: .github/scripts/build.sh
-
-      - name: Test
-        run: .github/scripts/test.sh
-
-      - name: Notify Slack
-        uses: slackapi/slack-github-action@v1.15.0
-        id: notify-slack
-        if: ${{ failure() && github.ref == 'refs/heads/main' }}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_DEVREL }}
+        run: |
+           docker build --tag deephaven-examples/prometheus-metrics-grpc-api .
+           docker-compose -f docker-compose.yml up -d
+      - name: Validate tables
+        uses: deephaven/action-assert-dh-tables-present@v1
         with:
-          payload: '{"repository": "${{ github.repository }}", "message": "${{ github.workflow }}/${{ github.job }} failure", "link": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}'
+          table-names: result_dynamic,result_static,result_static_update,result_static_average,result_dynamic_update,result_dynamic_average,result_dynamic_downsampled_average,result_dynamic_downsampled_tail,result_dynamic_ema
+          host: localhost
