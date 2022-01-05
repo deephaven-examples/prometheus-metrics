@@ -2,7 +2,7 @@ version: "3.4"
 
 services:
   server:
-    image: deephaven-examples/prometheus-metrics-server:edge
+    image: deephaven-examples/prometheus-metrics-server:latest
     expose:
       - '8080'
     volumes:
