@@ -1,2 +1,2 @@
-docker build --tag deephaven-examples/prometheus-metrics-grpc-api .
-docker-compose up
+docker build --tag deephaven-examples/prometheus-metrics-server .
+docker-compose up $1
