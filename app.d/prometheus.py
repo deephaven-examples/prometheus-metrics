@@ -12,13 +12,13 @@ One will be a static table and the other will be continually updating with real 
 @author Jake Mulford
 @copyright Deephaven Data Labs LLC
 """
-from deephaven.TableTools import newTable, stringCol, dateTimeCol, doubleCol
+from deephaven import new_table
+from deephaven.column import string_col, datetime_col, double_col
+from deephaven.time import millis_to_datetime
 from deephaven import DynamicTableWriter
-from deephaven.DateTimeUtils import millisToTime
-import deephaven.Types as dht
-from typing import Callable
-from deephaven.MovingAverages import ByEmaSimple
-from deephaven import Plot
+import deephaven.dtypes as dht
+from deephaven_legacy.MovingAverages import ByEmaSimple
+from deephaven.plot.figure import Figure
 
 import requests
 
@@ -56,23 +56,25 @@ def make_prometheus_request(prometheus_query, query_url):
         if "resultType" in response_json["data"] and response_json["data"]["resultType"] == "vector":
             for result in response_json["data"]["result"]:
                 #Prometheus timestamps are in seconds. We multiply by 1000 to convert it to
-                #milliseconds, then cast to an int() to use the millisToTime() method
-                timestamp = millisToTime(int(result["value"][0] * 1000))
+                #milliseconds, then cast to an int() to use the millis_to_datetime() method
+                timestamp = millis_to_datetime(int(result["value"][0] * 1000))
                 job = result["metric"]["job"]
                 instance = result["metric"]["instance"]
                 value = float(result["value"][1])
                 results.append((timestamp, job, instance, value))
     return results
 
-column_names = ["DateTime", "PrometheusQuery", "Job", "Instance", "Value"]
-column_types = [dht.datetime, dht.string, dht.string, dht.string, dht.double]
+dynamic_table_writer_columns = {
+    "DateTime": dht.DateTime,
+    "PrometheusQuery": dht.string,
+    "Job": dht.string,
+    "Instance": dht.string,
+    "Value": dht.double,
+}
 
-table_writer = DynamicTableWriter(
-    column_names,
-    column_types
-)
+table_writer = DynamicTableWriter(dynamic_table_writer_columns)
 
-result_dynamic = table_writer.getTable() 
+result_dynamic = table_writer.table
 
 def thread_func():
     while True:
@@ -80,7 +82,7 @@ def thread_func():
             values = make_prometheus_request(prometheus_query, BASE_URL)
 
             for (date_time, job, instance, value) in values:
-                table_writer.logRow(date_time, prometheus_query, job, instance, value)
+                table_writer.write_row(date_time, prometheus_query, job, instance, value)
         time.sleep(2)
 
 thread = threading.Thread(target = thread_func)
@@ -105,36 +107,36 @@ for i in range(query_count):
             value_list.append(value)
     time.sleep(2)
 
-result_static = newTable(
-    dateTimeCol("DateTime", date_time_list),
-    stringCol("PrometheusQuery", prometheus_query_list),
-    stringCol("Job", job_list),
-    stringCol("Instance", instance_list),
-    doubleCol("Value", value_list)
-) 
+result_static = new_table([
+    datetime_col("DateTime", date_time_list),
+    string_col("PrometheusQuery", prometheus_query_list),
+    string_col("Job", job_list),
+    string_col("Instance", instance_list),
+    double_col("Value", value_list)
+])
 
 #Perform the desired queries, and set the results as new fields
-result_static_update = result_static.groupBy("PrometheusQuery")
+result_static_update = result_static.group_by(by="PrometheusQuery")
 
-result_static_average = result_static.dropColumns("DateTime", "Job", "Instance").avgBy("PrometheusQuery")
+result_static_average = result_static.drop_columns(["DateTime", "Job", "Instance"]).avg_by(by="PrometheusQuery")
 
-result_dynamic_update = result_dynamic.groupBy("PrometheusQuery")
+result_dynamic_update = result_dynamic.group_by(by="PrometheusQuery")
 
-result_dynamic_average = result_dynamic.dropColumns("DateTime", "Job", "Instance").avgBy("PrometheusQuery")
+result_dynamic_average = result_dynamic.drop_columns(["DateTime", "Job", "Instance"]).avg_by(by="PrometheusQuery")
 
 #Downsampling examples
-result_dynamic_downsampled_average = result_dynamic.update("DateTimeMinute = lowerBin(DateTime, '00:01:00')")\
-    .dropColumns("DateTime")\
-    .avgBy("PrometheusQuery", "DateTimeMinute", "Job", "Instance")
+result_dynamic_downsampled_average = result_dynamic.update(["DateTimeMinute = lowerBin(DateTime, '00:01:00')"])\
+    .drop_columns(["DateTime"])\
+    .avg_by(by=["PrometheusQuery", "DateTimeMinute", "Job", "Instance"])
 
 result_dynamic_downsampled_tail = result_dynamic.tail(20)
 
-result_dynamic_ema = result_dynamic.view("PrometheusQuery", "EMA = prometheus_metrics_ema.update(DateTime, Value, PrometheusQuery, Job, Instance)")\
-    .lastBy("PrometheusQuery")\
+result_dynamic_ema = result_dynamic.view(["PrometheusQuery", "EMA = prometheus_metrics_ema.update(DateTime, Value, PrometheusQuery, Job, Instance)"])\
+    .last_by(by=["PrometheusQuery"])\
     .tail(10)
 
 #Plotting examples
 
-line_plot = Plot.plot("Average By Minute", result_dynamic_downsampled_average.where("PrometheusQuery = `go_memstats_alloc_bytes`"), "DateTimeMinute", "Value").chartTitle("go_memstats_alloc_bytes Average Per Minute").show()
-cat_plot = Plot.catPlot("Average By Minute", result_dynamic_downsampled_average.where("PrometheusQuery = `go_memstats_alloc_bytes`"), "DateTimeMinute", "Value").chartTitle("go_memstats_alloc_bytes Average Per Minute").show()
-hist_plot = Plot.histPlot("Count Of Values", result_dynamic.where("PrometheusQuery = `go_memstats_alloc_bytes`"), "Value", 20).chartTitle("go_memstats_alloc_bytes Distribution").show()
+line_plot = Figure().plot_xy(series_name="Average By Minute", t=result_dynamic_downsampled_average.where(filters=["PrometheusQuery = `go_memstats_alloc_bytes`"]), x="DateTimeMinute", y="Value").chart_title(title="go_memstats_alloc_bytes Average Per Minute").show()
+cat_plot = Figure().plot_cat(series_name="Average By Minute", t=result_dynamic_downsampled_average.where(filters=["PrometheusQuery = `go_memstats_alloc_bytes`"]), category="DateTimeMinute", y="Value").chart_title(title="go_memstats_alloc_bytes Average Per Minute").show()
+hist_plot = Figure().plot_xy_hist(series_name="Count Of Values", t=result_dynamic.where(filters=["PrometheusQuery = `go_memstats_alloc_bytes`"]), x="Value", nbins=20).chart_title(title="go_memstats_alloc_bytes Distribution").show()
