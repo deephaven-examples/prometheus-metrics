@@ -15,6 +15,7 @@ One will be a static table and the other will be continually updating with real 
 from deephaven import new_table
 from deephaven.column import string_col, datetime_col, double_col
 from deephaven.time import millis_to_datetime
+
 from deephaven import DynamicTableWriter
 import deephaven.dtypes as dht
 from deephaven_legacy.MovingAverages import ByEmaSimple
