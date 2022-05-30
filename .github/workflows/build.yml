@@ -18,7 +18,7 @@ jobs:
       - name: Build
         run: sh prometheusDhMetricsStart.sh -d
       - name: Validate tables
-        uses: deephaven/action-assert-dh-tables-present@v1
+        uses: deephaven/action-assert-dh-tables-present@v1.1.1
         with:
           table-names: result_dynamic,result_static,result_static_update,result_static_average,result_dynamic_update,result_dynamic_average,result_dynamic_downsampled_average,result_dynamic_downsampled_tail,result_dynamic_ema
           host: localhost
