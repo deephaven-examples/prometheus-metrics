@@ -17,7 +17,7 @@ from deephaven.column import string_col, datetime_col, double_col
 from deephaven.time import millis_to_datetime
 from deephaven import DynamicTableWriter
 import deephaven.dtypes as dht
-from deephaven_legacy.MovingAverages import ByEmaSimple
+from deephaven.experimental.ema import ByEmaSimple
 from deephaven.plot.figure import Figure
 
 import requests
