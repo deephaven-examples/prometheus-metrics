@@ -2,6 +2,8 @@
 
 [Prometheus](https://prometheus.io/) is an open-source systems monitoring and alerting toolkit that collects and stores its metrics as time series data. This sample app shows how to ingest data from Prometheus into [Deephaven](https://deephaven.io/).
 
+This repository was built to work with Deephaven Community Core v0.13.0. No guarantee of forwards or backwards compatibility is given.
+
 ## How it works
 
 ### Deephaven application mode
